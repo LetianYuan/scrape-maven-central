@@ -29,8 +29,16 @@ require 'slop'
 def get(path)
   uri = URI.parse("https://repo1.maven.org/maven2/#{path}")
   req = Net::HTTP::Get.new(uri.to_s)
-  res = Net::HTTP.start(uri.host, uri.port, use_ssl: true) do |http|
-    http.request(req)
+  finished = false
+  res = nil
+  while finished == false do
+    begin
+      res = Net::HTTP.start(uri.host, uri.port, use_ssl: true) do |http|
+        http.request(req)
+      end
+      finished = true
+    rescue
+    end
   end
   raise "Invalid response code from #{uri}: #{res.code}" unless res.code == '200'
   res.body
@@ -46,7 +54,7 @@ def scrape(path, ignore = [], start = '')
     artifactId = meta.xpath('//artifactId/text()')
     latestVersion = meta.xpath('//versions/version[last()]/text()')
     versions = meta.xpath('//versions/version').each do |version|
-      puts "#{path} #{latestVersion} #{date} #{groupId}:#{artifactId}:#{version.content}"
+      puts "\"#{path}\",\"#{latestVersion}\",\"#{date}\",\"#{groupId}:#{artifactId}:#{version.content}\""
     end
   else
     found = false
@@ -77,5 +85,6 @@ if opts.help?
   exit
 end
 
+puts "path,latestVersion,date,artifactAddress"
 scrape(opts[:root], opts[:ignore], opts[:start])
 
