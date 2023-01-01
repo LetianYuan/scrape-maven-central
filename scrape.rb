@@ -42,8 +42,12 @@ def scrape(path, ignore = [], start = '')
     match = body.match(%r{maven-metadata.xml</a>\s+(\d{4}-\d{2}-\d{2} )})
     date = Date.strptime(match[1], '%Y-%m-%d')
     meta = Nokogiri::XML(get("#{path}maven-metadata.xml"))
-    version = meta.xpath('//versions/version[last()]/text()')
-    puts "#{path} #{version} #{date}"
+    groupId = meta.xpath('//groupId/text()')
+    artifactId = meta.xpath('//artifactId/text()')
+    latestVersion = meta.xpath('//versions/version[last()]/text()')
+    versions = meta.xpath('//versions/version').each do |version|
+      puts "#{path} #{latestVersion} #{date} #{groupId}:#{artifactId}:#{version.content}"
+    end
   else
     found = false
     body.scan(%r{href="([a-zA-Z\-]+/)"}).each do |p|
