@@ -31,38 +31,43 @@ def get(path)
   req = Net::HTTP::Get.new(uri.to_s)
   finished = false
   res = nil
-  while finished == false do
+  until finished do
     begin
       res = Net::HTTP.start(uri.host, uri.port, use_ssl: true) do |http|
         http.request(req)
       end
       finished = true
     rescue
+      # Ignored
     end
   end
-  raise "Invalid response code from #{uri}: #{res.code}" unless res.code == '200'
-  res.body
+  if res.code != '200'
+    ""
+  else
+    res.body
+  end
 end
 
 def scrape(path, ignore = [], start = '')
   body = get(path)
-  if (body.include?('maven-metadata.xml'))
+  if body.include?('maven-metadata.xml')
     match = body.match(%r{maven-metadata.xml</a>\s+(\d{4}-\d{2}-\d{2} )})
     date = Date.strptime(match[1], '%Y-%m-%d')
     meta = Nokogiri::XML(get("#{path}maven-metadata.xml"))
     groupId = meta.xpath('//groupId/text()')
     artifactId = meta.xpath('//artifactId/text()')
     latestVersion = meta.xpath('//versions/version[last()]/text()')
-    versions = meta.xpath('//versions/version').each do |version|
-      puts "\"#{path}\",\"#{latestVersion}\",\"#{date}\",\"#{groupId}:#{artifactId}:#{version.content}\""
-    end
+    puts "\"#{path}\",\"#{latestVersion}\",\"#{date}\",\"#{groupId}:#{artifactId}:#{latestVersion}\""
+    # versions = meta.xpath('//versions/version').each do |version|
+    #   puts "\"#{path}\",\"#{latestVersion}\",\"#{date}\",\"#{groupId}:#{artifactId}:#{version.content}\""
+    # end
   else
     found = false
     body.scan(%r{href="([a-zA-Z\-]+/)"}).each do |p|
       target = "#{path}#{p[0]}"
       found = true if target.start_with?(start)
       next unless found
-      next unless ignore.select{ |i| target.start_with?(i) }.empty?
+      next unless ignore.select { |i| target.start_with?(i) }.empty?
       scrape(target, ignore)
     end
   end
@@ -70,7 +75,7 @@ end
 
 begin
   opts = Slop.parse(ARGV, strict: true, help: true) do |o|
-    o.banner = "Usage: ruby scrabe.rb [options]"
+    o.banner = "Usage: ruby scrape.rb [options]"
     o.bool '-h', '--help', 'Show these instructions'
     o.string '-r', '--root', 'Root path to start from', default: ''
     o.array '-i', '--ignore', 'Prefixes to ignore, like "org/", for example'
