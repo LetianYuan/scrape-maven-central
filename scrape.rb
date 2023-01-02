@@ -30,6 +30,7 @@ require 'slop'
 $result_file = nil
 
 def get(path)
+  puts path
   uri = URI.parse("https://repo1.maven.org/maven2/#{path}")
   req = Net::HTTP::Get.new(uri.to_s)
   finished = false
@@ -54,25 +55,30 @@ end
 def scrape(path, ignore = [], start = '')
   body = get(path)
   if body.include?('maven-metadata.xml')
-    match = body.match(%r{maven-metadata.xml</a>\s+(\d{4}-\d{2}-\d{2} )})
-    date = Date.strptime(match[1], '%Y-%m-%d')
-    meta = Nokogiri::XML(get("#{path}maven-metadata.xml"))
-    groupId = meta.xpath('//groupId/text()')
-    artifactId = meta.xpath('//artifactId/text()')
-    latestVersion = meta.xpath('//versions/version[last()]/text()')
-    $result_file.puts("\"#{path}\",\"#{latestVersion}\",\"#{date}\",\"#{groupId}:#{artifactId}:#{latestVersion}\"")
-    # versions = meta.xpath('//versions/version').each do |version|
-    #   puts "\"#{path}\",\"#{latestVersion}\",\"#{date}\",\"#{groupId}:#{artifactId}:#{version.content}\""
-    # end
-  else
-    found = false
-    body.scan(%r{href="([a-zA-Z\-]+/)"}).each do |p|
-      target = "#{path}#{p[0]}"
-      found = true if target.start_with?(start)
-      next unless found
-      next unless ignore.select { |i| target.start_with?(i) }.empty?
-      scrape(target, ignore)
+    while true do
+      match = body.match(%r{maven-metadata.xml</a>\s+(\d{4}-\d{2}-\d{2} )})
+      date = Date.strptime(match[1], '%Y-%m-%d')
+      meta = Nokogiri::XML(get("#{path}maven-metadata.xml"))
+      group_id = meta.xpath('//groupId/text()')
+      artifact_id = meta.xpath('//artifactId/text()')
+      if group_id.empty? or artifact_id.empty?
+        break
+      end
+      latest_version = meta.xpath('//versions/version[last()]/text()')
+      $result_file.puts("\"#{path}\",\"#{latest_version}\",\"#{date}\",\"#{group_id}:#{artifact_id}:#{latest_version}\"")
+      # versions = meta.xpath('//versions/version').each do |version|
+      #   puts "\"#{path}\",\"#{latestVersion}\",\"#{date}\",\"#{groupId}:#{artifactId}:#{version.content}\""
+      # end
+      return
     end
+  end
+  found = false
+  body.scan(%r{href="([a-zA-Z\-]+/)"}).each do |p|
+    target = "#{path}#{p[0]}"
+    found = true if target.start_with?(start)
+    next unless found
+    next unless ignore.select { |i| target.start_with?(i) }.empty?
+    scrape(target, ignore)
   end
 end
 
