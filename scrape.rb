@@ -27,6 +27,8 @@ require 'date'
 require 'nokogiri'
 require 'slop'
 
+$result_file = nil
+
 def get(path)
   uri = URI.parse("https://repo1.maven.org/maven2/#{path}")
   req = Net::HTTP::Get.new(uri.to_s)
@@ -58,7 +60,7 @@ def scrape(path, ignore = [], start = '')
     groupId = meta.xpath('//groupId/text()')
     artifactId = meta.xpath('//artifactId/text()')
     latestVersion = meta.xpath('//versions/version[last()]/text()')
-    puts "\"#{path}\",\"#{latestVersion}\",\"#{date}\",\"#{groupId}:#{artifactId}:#{latestVersion}\""
+    $result_file.puts("\"#{path}\",\"#{latestVersion}\",\"#{date}\",\"#{groupId}:#{artifactId}:#{latestVersion}\"")
     # versions = meta.xpath('//versions/version').each do |version|
     #   puts "\"#{path}\",\"#{latestVersion}\",\"#{date}\",\"#{groupId}:#{artifactId}:#{version.content}\""
     # end
@@ -81,6 +83,7 @@ begin
     o.string '-r', '--root', 'Root path to start from', default: ''
     o.array '-i', '--ignore', 'Prefixes to ignore, like "org/", for example'
     o.string '-s', '--start', 'Start from this path', default: ''
+    o.string '-o', '--output', 'Specify output to a .csv file', default: 'result.csv'
   end
 rescue Slop::Error => ex
   raise StandardError, "#{ex.message}, try --help"
@@ -91,6 +94,12 @@ if opts.help?
   exit
 end
 
-puts "path,latestVersion,date,artifactAddress"
-scrape(opts[:root], opts[:ignore], opts[:start])
+$result_file = File.new(opts[:output], "w+")
+$result_file.puts("path,latestVersion,date,artifactAddress")
+begin
+  scrape(opts[:root], opts[:ignore], opts[:start])
+  $result_file.close
+rescue Interrupt
+  $result_file.close
+end
 
