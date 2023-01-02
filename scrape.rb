@@ -1,4 +1,5 @@
 #!/usr/bin/env ruby
+# -*- coding:utf-8 -*-
 # Copyright (c) 2017-2020 Yegor Bugayenko
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
